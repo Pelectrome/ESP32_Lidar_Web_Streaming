@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <title>ESP32 Lidar Web Streaming</title>
+</head>
+
+<body>
+  <!-- <div id="output"></div> -->
+  <script>
+
+    const currentUrl = window.location.href;
+    // Extract the host from the URL
+    const urlObject = new URL(currentUrl);
+    const host = urlObject.host;
+
+    // Create the WebSocket URL with the extracted host
+    const socket = new WebSocket(`ws://${host}:81`);
+    // Event listener for when the connection is established
+    socket.addEventListener('open', (event) => {
+      print("Connection established");
+    });
+
+    // Event listener for receiving messages from the server
+    socket.addEventListener('message', (event) => {
+      const message = event.data;
+      const jsonArray = JSON.parse(message);
+      dataIn = Array.from(jsonArray);
+      // console.log(points);
+    });
+
+    // Event listener for errors
+    socket.addEventListener('error', (event) => {
+      print("Error: ${event.message}");
+    });
+
+    // Event listener for when the connection is closed
+    socket.addEventListener('close', (event) => {
+      print("Connection closed");
+    });
+
+
+    let scal = 1;
+    let offset;
+
+    let dataIn = [];
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      offset = createVector(width / 2, height / 2);
+
+      window.addEventListener("wheel", e => {
+        const s = 1 - (e.deltaY / 1000);
+        scal *= s;
+
+        const mouse = createVector(mouseX, mouseY);
+
+        offset
+          .sub(mouse)
+          .mult(s)
+          .add(mouse)
+
+      });
+
+    }
+
+    function draw() {
+      const mouse = createVector(mouseX, mouseY);
+      const relativeMouse = mouse.copy().sub(offset);
+
+      background(0);
+
+      translate(offset.x, offset.y);
+      scale(scal);
+
+      drawAxis(scal);
+
+
+      if (dataIn.length > 0) {
+        for (let index = 0; index < dataIn[0].length; index++) {
+
+          let radAngle = radians(dataIn[0][index]);
+          let distance = dataIn[1][index];
+
+          let x = distance * cos(radAngle);
+          let y = distance * sin(radAngle);
+
+          noStroke();
+          fill(255);
+          circle(x, y, 2 / scal);
+
+          //shadow  diplay
+          fill(255, 255, 255, 40);
+          let stepRad = radians(360 / 640 / 2);
+          let x1 = distance * cos(radAngle + stepRad);
+          let y1 = distance * sin(radAngle + stepRad);
+          let x2 = distance * cos(radAngle - stepRad);
+          let y2 = distance * sin(radAngle - stepRad);
+          triangle(0, 0, x1, y1, x2, y2);
+
+        }
+      }
+
+      if (mouseIsPressed) {
+        offset.x -= pmouseX - mouseX;
+        offset.y -= pmouseY - mouseY;
+      }
+
+    }
+
+    function drawAxis(scal) {
+      stroke(color('#8b0000'));
+      strokeWeight(0.5 / scal);
+      noFill();
+      line(-10000, 0, +10000, 0);
+      line(0, -10000, 0, +10000);
+      for (let index = 1; index <= 20; index++) {
+        circle(0, 0, 1000 * index);
+      }
+    }
+  </script>
+</body>
+
+</html>
